@@ -1,0 +1,37 @@
+# Tata Solar (TPSL Gangaikondan) — RO Stage 1 HP pump energy meter readings
+#
+# Transcribed from the handwritten energy logbook (TP Solar energy data.pdf):
+#   Row 15 of each page = RO Stage-1 High pressure pump A
+#   Row 16            = RO Stage-1 High pressure pump B
+#   Row 17            = RO Stage-1 High pressure pump C
+# All values are CUMULATIVE kWh meter readings.
+# Daily kWh = today's reading − previous reading. The engine computes this.
+#
+# Gaps in the journal (no entry that day, e.g. 08.02, 14.02, 21.02) are
+# represented as blank cells — pandas will treat them as NaN and the diff()
+# operation will skip them.
+#
+# March/April 2026 readings exist in the PDF but the corresponding monthly
+# operational Excel hasn't arrived yet. Add those rows here as soon as the
+# UPW Plant Mar/Apr report is shared — same format.
+Date,RO_A_kWh_cum,RO_B_kWh_cum,RO_C_kWh_cum
+2026-02-03,22067,27018,26489
+2026-02-04,22148,27077,26561
+2026-02-05,22225,27160,26625
+2026-02-06,22301,27231,26681
+2026-02-07,22375,27300,26743
+2026-02-09,22562,27491,27015
+2026-02-10,22622,27589,27065
+2026-02-11,22697,27675,27115
+2026-02-12,22747,27743,27190
+2026-02-15,22856,27872,27305
+2026-02-16,22987,28029,27439
+2026-02-17,23036,28100,27507
+2026-02-18,23126,28152,27562
+2026-02-19,23197,28203,27636
+2026-02-20,23248,28298,27693
+2026-02-22,23414,28380,27850
+2026-02-23,23463,28471,27914
+2026-02-24,23558,28517,27966
+2026-02-25,23598,28569,28077
+2026-02-26,23682,28637,28117
