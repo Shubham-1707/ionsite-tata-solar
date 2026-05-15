@@ -689,20 +689,26 @@ with tab_energy:
     st.caption(
         "**Data mapping** — HP-pump energy meters from the handwritten plant logbook: "
         "row **15** → **RO A**, row **16** → **RO B**, row **17** → **RO C**. "
-        "Each value is a cumulative kWh reading; the engine computes the daily delta. "
-        "SEC = daily kWh ÷ (NPF × operating hours).  "
-        "Missing days within the observed window are **linearly interpolated** "
-        "(safe because cumulative meters increase monotonically) and shown as "
-        "hollow markers on the charts below."
+        "Each value in the source is a cumulative kWh meter reading; the engine "
+        "computes the daily delta. SEC = daily kWh ÷ (NPF × operating hours)."
     )
 
-    # Interpolation summary
+    # Interpolation banner — explicitly named so it's not hidden in fine print
     if "Energy_interpolated" in df.columns:
         interp_total = int(df["Energy_interpolated"].fillna(False).sum())
-        obs_total    = int((df["Energy_interpolated"] == False).sum() if "Energy_interpolated" in df.columns else 0)
+        obs_total    = int((df["Energy_interpolated"] == False).sum())
         if interp_total > 0:
-            st.info(f"📈  **{obs_total}** observed days · **{interp_total}** interpolated days "
-                    f"(across {len(df['Train'].unique())} trains)")
+            st.warning(
+                f"⚠️  **Interpolation in use.**  "
+                f"Of the {obs_total + interp_total} day-train data points in this view, "
+                f"**{obs_total} are observed** (transcribed directly from the PDF) and "
+                f"**{interp_total} are linearly interpolated** between adjacent observed "
+                f"cumulative readings.  Interpolation is safe here because cumulative "
+                f"meters only increase monotonically — but visually the chart marks every "
+                f"interpolated point as a **hollow ring** (vs filled circle for observed) "
+                f"and the raw daily-log table at the bottom tags each row "
+                f"`observed` or `interpolated`."
+            )
 
     if "Energy_kWh" not in df.columns or df["Energy_kWh"].notna().sum() == 0:
         st.warning(

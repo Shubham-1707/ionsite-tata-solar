@@ -1,19 +1,21 @@
-# Tata Solar (TPSL Gangaikondan) — RO Stage 1 HP pump energy meter readings
-#
+# Tata Solar (TPSL Gangaikondan) — RO Stage 1 HP-pump energy meter readings
 # Transcribed from the handwritten energy logbook (TP Solar energy data.pdf):
-#   Row 15 of each page = RO Stage-1 High pressure pump A
-#   Row 16            = RO Stage-1 High pressure pump B
-#   Row 17            = RO Stage-1 High pressure pump C
-# All values are CUMULATIVE kWh meter readings.
-# Daily kWh = today's reading − previous reading. The engine computes this.
+#   Row 15 → RO_A_kWh_cum   |   Row 16 → RO_B_kWh_cum   |   Row 17 → RO_C_kWh_cum
+# All values are CUMULATIVE kWh.
 #
-# Gaps in the journal (no entry that day, e.g. 08.02, 14.02, 21.02) are
-# represented as blank cells — pandas will treat them as NaN and the diff()
-# operation will skip them.
+# Provenance:
+#   * Feb 3 – Apr 24 transcribed by Shubham from the PDF (best-effort handwriting reads).
+#   * Blank rows = either the source PDF cell was empty / illegible OR readings looked
+#     inconsistent and were left out so the dashboard can interpolate cleanly.
+#   * Rohan to verify questionable values against the original logbook.
 #
-# March/April 2026 readings exist in the PDF but the corresponding monthly
-# operational Excel hasn't arrived yet. Add those rows here as soon as the
-# UPW Plant Mar/Apr report is shared — same format.
+# Engine behaviour:
+#   * Each row's "daily kWh" is computed as today's cumulative minus yesterday's.
+#   * Missing days INSIDE the observed window are LINEARLY INTERPOLATED (safe because
+#     a cumulative meter only ever increases). The dashboard tags those rows as
+#     'interpolated' on charts (hollow markers) and in the daily-log table.
+#
+# Last updated:  Shubham, 15 May 2026
 Date,RO_A_kWh_cum,RO_B_kWh_cum,RO_C_kWh_cum
 2026-02-03,22067,27018,26489
 2026-02-04,22148,27077,26561
@@ -35,3 +37,51 @@ Date,RO_A_kWh_cum,RO_B_kWh_cum,RO_C_kWh_cum
 2026-02-24,23558,28517,27966
 2026-02-25,23598,28569,28077
 2026-02-26,23682,28637,28117
+2026-03-04,24061,28999,28405
+2026-03-05,24088,29085,28487
+2026-03-06,24178,29114,28571
+2026-03-07,24208,29216,28649
+2026-03-08,24293,29252,28730
+2026-03-09,24351,29360,28781
+2026-03-10,24402,29456,28882
+2026-03-11,24481,29505,28929
+2026-03-12,24556,29589,28951
+2026-03-13,24622,29660,29017
+2026-03-16,24868,29832,29283
+2026-03-17,24924,29903,29361
+2026-03-18,25021,29955,29417
+2026-03-19,25104,30007,29484
+2026-03-20,25169,30081,29538
+2026-03-23,25404,30276,29748
+2026-03-24,25447,30376,29823
+2026-03-25,25515,30409,29923
+2026-03-26,25581,30487,29995
+2026-03-27,25650,30563,30062
+2026-03-28,25685,30637,30162
+2026-03-29,25763,30720,30198
+2026-03-30,25841,30795,30264
+2026-03-31,25916,30860,30347
+2026-04-01,25978,30912,30436
+2026-04-02,26041,30975,
+2026-04-03,26153,31065,30522
+2026-04-04,26186,31169,30596
+2026-04-05,26250,31231,30688
+2026-04-06,26363,31291,30751
+2026-04-07,26422,31375,30819
+2026-04-08,26537,31375,30945
+2026-04-09,26607,31452,30991
+2026-04-10,26691,31522,31058
+2026-04-11,26767,31588,31118
+2026-04-12,26814,31671,31184
+2026-04-13,26896,31746,31249
+2026-04-14,26896,31851,31363
+2026-04-15,26991,31904,31439
+2026-04-16,27041,32000,31531
+2026-04-17,27118,32079,31622
+2026-04-18,27181,32144,31696
+2026-04-19,27245,32234,31745
+2026-04-20,27345,32284,31819
+2026-04-21,27443,32339,31871
+2026-04-22,27476,32431,
+2026-04-23,27547,32499,
+2026-04-24,27599,32555,32649
