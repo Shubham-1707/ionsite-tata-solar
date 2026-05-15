@@ -695,8 +695,9 @@ with tab_energy:
 
     # Interpolation banner — explicitly named so it's not hidden in fine print
     if "Energy_interpolated" in df.columns:
-        interp_total = int(df["Energy_interpolated"].fillna(False).sum())
-        obs_total    = int((df["Energy_interpolated"] == False).sum())
+        flag = df["Energy_interpolated"].fillna(False).astype(bool)
+        interp_total = int(flag.sum())
+        obs_total    = int((~flag).sum())
         if interp_total > 0:
             st.warning(
                 f"⚠️  **Interpolation in use.**  "
@@ -728,16 +729,20 @@ with tab_energy:
                        if pd.notna(sec_mean) else "no overlap with operational dates")
             kpi_card(ecols[i], f"{train}", f"{kwh_total:,.0f} kWh · ₹{cost:,.0f}", sub_txt)
 
+        # Helper: split observed vs interpolated, robust to missing column
+        def _split_obs_interp(sub: pd.DataFrame):
+            if "Energy_interpolated" in sub.columns:
+                flag = sub["Energy_interpolated"].fillna(False).astype(bool)
+                return sub[~flag], sub[flag]
+            return sub, sub.iloc[0:0]   # everything treated as observed
+
         # ---- Daily kWh per train -----------------------------------
         st.markdown("##### Daily HP-pump energy (kWh)   ·   filled markers = observed, hollow = interpolated")
         fig = go.Figure()
         for t in train_pick:
             sub = df[df["Train"] == t].copy()
-            # split observed vs interpolated for marker styling
-            obs = sub[sub["Energy_interpolated"] == False]
-            inp = sub[sub["Energy_interpolated"] == True]
+            obs, inp = _split_obs_interp(sub)
             clr = TRAIN_COLOR.get(t, "#888")
-            # Line over everything
             fig.add_trace(go.Scatter(x=sub["Timestamp"], y=sub["Energy_kWh"],
                                      mode="lines", name=t,
                                      line=dict(color=clr, width=2),
@@ -762,8 +767,7 @@ with tab_energy:
         fig = go.Figure()
         for t in train_pick:
             sub = df[df["Train"] == t].copy()
-            obs = sub[sub["Energy_interpolated"] == False]
-            inp = sub[sub["Energy_interpolated"] == True]
+            obs, inp = _split_obs_interp(sub)
             clr = TRAIN_COLOR.get(t, "#888")
             fig.add_trace(go.Scatter(x=sub["Timestamp"], y=sub["SEC_kWh_per_m3"],
                                      mode="lines", name=t,
@@ -810,11 +814,17 @@ with tab_energy:
 
         # ---- Raw daily log -----------------------------------------
         st.markdown("##### Daily energy log (raw values from the transcription, interpolated rows tagged)")
-        e_view = df[["Timestamp", "Train", "Energy_cum_kWh", "Energy_kWh",
-                     "NPF", "SEC_kWh_per_m3", "Energy_interpolated"]].copy()
-        e_view["Source"] = np.where(
-            e_view["Energy_interpolated"].fillna(False), "interpolated", "observed")
-        e_view = e_view.drop(columns=["Energy_interpolated"])
+        log_cols = ["Timestamp", "Train", "Energy_cum_kWh", "Energy_kWh",
+                    "NPF", "SEC_kWh_per_m3"]
+        if "Energy_interpolated" in df.columns:
+            log_cols.append("Energy_interpolated")
+        e_view = df[log_cols].copy()
+        if "Energy_interpolated" in e_view.columns:
+            e_view["Source"] = np.where(
+                e_view["Energy_interpolated"].fillna(False), "interpolated", "observed")
+            e_view = e_view.drop(columns=["Energy_interpolated"])
+        else:
+            e_view["Source"] = "observed"
         e_view = e_view.rename(columns={
             "Timestamp": "Date", "Energy_cum_kWh": "Cumulative kWh",
             "Energy_kWh": "Daily kWh", "NPF": "NPF (m³/hr)",
