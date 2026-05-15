@@ -508,25 +508,63 @@ def forecast_days_to_cip(train_df: pd.DataFrame, severity: str = "Cleaning Requi
 TRAIN_TO_ENERGY = {"RO A": "RO_A_kWh_cum", "RO B": "RO_B_kWh_cum", "RO C": "RO_C_kWh_cum"}
 
 
-def load_energy(csv_path: str | Path) -> pd.DataFrame:
+def load_energy(csv_path: str | Path,
+                interpolate_gaps: bool = True,
+                max_gap_days: int = 14) -> pd.DataFrame:
+    """
+    Load the cumulative HP-pump kWh log.
+
+    If `interpolate_gaps` is True, missing cumulative values are filled by linear
+    interpolation against time — this is safe because the meters are monotonic
+    (cumulative readings only increase). `max_gap_days` is the largest gap that
+    will be interpolated; longer gaps stay NaN to avoid implausible extrapolation.
+
+    The interpolated row gets a flag column `Energy_interpolated` so the
+    dashboard can show those points visually distinct from observed values.
+    """
     if not Path(csv_path).exists():
-        return pd.DataFrame(columns=["Timestamp", "Train", "Energy_kWh", "Energy_cum_kWh"])
+        return pd.DataFrame(columns=["Timestamp", "Train", "Energy_kWh",
+                                     "Energy_cum_kWh", "Energy_interpolated"])
     e = pd.read_csv(csv_path, parse_dates=["Date"], comment="#")
     e = e.rename(columns={"Date": "Timestamp"}).sort_values("Timestamp")
+
     out = []
     for train, col in TRAIN_TO_ENERGY.items():
-        if col not in e.columns: continue
-        sub = e[["Timestamp", col]].dropna(subset=[col]).copy()
-        sub["Energy_cum_kWh"] = sub[col]
-        sub["Energy_kWh"]     = sub[col].diff()
-        sub["Train"]          = train
-        out.append(sub[["Timestamp", "Train", "Energy_kWh", "Energy_cum_kWh"]])
+        if col not in e.columns:
+            continue
+        sub = e[["Timestamp", col]].copy().sort_values("Timestamp")
+        sub = sub.dropna(subset=[col])
+        if sub.empty:
+            continue
+
+        # Mark observed rows BEFORE reindexing
+        sub["_observed"] = True
+
+        if interpolate_gaps:
+            # Reindex to a continuous daily range so interpolation can fill gaps
+            sub = sub.set_index("Timestamp")
+            full_idx = pd.date_range(sub.index.min(), sub.index.max(), freq="D")
+            sub = sub.reindex(full_idx)
+            sub.index.name = "Timestamp"
+            sub["_observed"] = sub["_observed"].fillna(False)
+            sub[col] = (sub[col]
+                        .interpolate(method="time", limit=max_gap_days,
+                                     limit_area="inside"))
+            sub = sub.reset_index()
+
+        sub = sub.dropna(subset=[col])
+        sub["Energy_cum_kWh"]      = sub[col]
+        sub["Energy_kWh"]          = sub[col].diff()
+        sub["Train"]               = train
+        sub["Energy_interpolated"] = ~sub["_observed"]
+        out.append(sub[["Timestamp", "Train", "Energy_kWh",
+                        "Energy_cum_kWh", "Energy_interpolated"]])
     return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
 
 
 def add_energy(g: pd.DataFrame, energy: pd.DataFrame, op_hours_per_day: float = 24.0) -> pd.DataFrame:
     if energy.empty:
-        for c in ("Energy_kWh", "Energy_cum_kWh", "SEC_kWh_per_m3"):
+        for c in ("Energy_kWh", "Energy_cum_kWh", "SEC_kWh_per_m3", "Energy_interpolated"):
             g[c] = np.nan
         return g
     g = g.copy(); energy = energy.copy()

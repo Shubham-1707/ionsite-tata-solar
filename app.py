@@ -690,8 +690,19 @@ with tab_energy:
         "**Data mapping** — HP-pump energy meters from the handwritten plant logbook: "
         "row **15** → **RO A**, row **16** → **RO B**, row **17** → **RO C**. "
         "Each value is a cumulative kWh reading; the engine computes the daily delta. "
-        "SEC = daily kWh ÷ (NPF × operating hours)."
+        "SEC = daily kWh ÷ (NPF × operating hours).  "
+        "Missing days within the observed window are **linearly interpolated** "
+        "(safe because cumulative meters increase monotonically) and shown as "
+        "hollow markers on the charts below."
     )
+
+    # Interpolation summary
+    if "Energy_interpolated" in df.columns:
+        interp_total = int(df["Energy_interpolated"].fillna(False).sum())
+        obs_total    = int((df["Energy_interpolated"] == False).sum() if "Energy_interpolated" in df.columns else 0)
+        if interp_total > 0:
+            st.info(f"📈  **{obs_total}** observed days · **{interp_total}** interpolated days "
+                    f"(across {len(df['Train'].unique())} trains)")
 
     if "Energy_kWh" not in df.columns or df["Energy_kWh"].notna().sum() == 0:
         st.warning(
@@ -712,14 +723,30 @@ with tab_energy:
             kpi_card(ecols[i], f"{train}", f"{kwh_total:,.0f} kWh · ₹{cost:,.0f}", sub_txt)
 
         # ---- Daily kWh per train -----------------------------------
-        st.markdown("##### Daily HP-pump energy (kWh)")
+        st.markdown("##### Daily HP-pump energy (kWh)   ·   filled markers = observed, hollow = interpolated")
         fig = go.Figure()
         for t in train_pick:
-            sub = df[df["Train"] == t]
+            sub = df[df["Train"] == t].copy()
+            # split observed vs interpolated for marker styling
+            obs = sub[sub["Energy_interpolated"] == False]
+            inp = sub[sub["Energy_interpolated"] == True]
+            clr = TRAIN_COLOR.get(t, "#888")
+            # Line over everything
             fig.add_trace(go.Scatter(x=sub["Timestamp"], y=sub["Energy_kWh"],
-                                     mode="lines+markers", name=t,
-                                     line=dict(color=TRAIN_COLOR.get(t, "#888"), width=2)))
-        fig.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10),
+                                     mode="lines", name=t,
+                                     line=dict(color=clr, width=2),
+                                     legendgroup=t))
+            fig.add_trace(go.Scatter(x=obs["Timestamp"], y=obs["Energy_kWh"],
+                                     mode="markers", name=f"{t} observed",
+                                     marker=dict(color=clr, size=7, symbol="circle"),
+                                     legendgroup=t, showlegend=False))
+            if not inp.empty:
+                fig.add_trace(go.Scatter(x=inp["Timestamp"], y=inp["Energy_kWh"],
+                                         mode="markers", name=f"{t} interpolated",
+                                         marker=dict(color=clr, size=8,
+                                                     symbol="circle-open", line=dict(width=2)),
+                                         legendgroup=t, showlegend=False))
+        fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10),
                           legend=dict(orientation="h", y=1.12, x=0),
                           yaxis_title="kWh / day")
         st.plotly_chart(fig, use_container_width=True)
@@ -728,11 +755,24 @@ with tab_energy:
         st.markdown("##### Specific Energy Consumption (kWh / m³ permeate)")
         fig = go.Figure()
         for t in train_pick:
-            sub = df[df["Train"] == t]
+            sub = df[df["Train"] == t].copy()
+            obs = sub[sub["Energy_interpolated"] == False]
+            inp = sub[sub["Energy_interpolated"] == True]
+            clr = TRAIN_COLOR.get(t, "#888")
             fig.add_trace(go.Scatter(x=sub["Timestamp"], y=sub["SEC_kWh_per_m3"],
-                                     mode="lines+markers", name=t,
-                                     line=dict(color=TRAIN_COLOR.get(t, "#888"), width=2)))
-        fig.update_layout(height=300, margin=dict(l=10, r=10, t=10, b=10),
+                                     mode="lines", name=t,
+                                     line=dict(color=clr, width=2),
+                                     legendgroup=t))
+            fig.add_trace(go.Scatter(x=obs["Timestamp"], y=obs["SEC_kWh_per_m3"],
+                                     mode="markers", marker=dict(color=clr, size=7, symbol="circle"),
+                                     legendgroup=t, showlegend=False))
+            if not inp.empty:
+                fig.add_trace(go.Scatter(x=inp["Timestamp"], y=inp["SEC_kWh_per_m3"],
+                                         mode="markers",
+                                         marker=dict(color=clr, size=8,
+                                                     symbol="circle-open", line=dict(width=2)),
+                                         legendgroup=t, showlegend=False))
+        fig.update_layout(height=320, margin=dict(l=10, r=10, t=10, b=10),
                           legend=dict(orientation="h", y=1.12, x=0),
                           yaxis_title="kWh / m³")
         st.plotly_chart(fig, use_container_width=True)
@@ -763,9 +803,12 @@ with tab_energy:
             st.plotly_chart(fig, use_container_width=True)
 
         # ---- Raw daily log -----------------------------------------
-        st.markdown("##### Daily energy log (raw values from the transcription)")
+        st.markdown("##### Daily energy log (raw values from the transcription, interpolated rows tagged)")
         e_view = df[["Timestamp", "Train", "Energy_cum_kWh", "Energy_kWh",
-                     "NPF", "SEC_kWh_per_m3"]].copy()
+                     "NPF", "SEC_kWh_per_m3", "Energy_interpolated"]].copy()
+        e_view["Source"] = np.where(
+            e_view["Energy_interpolated"].fillna(False), "interpolated", "observed")
+        e_view = e_view.drop(columns=["Energy_interpolated"])
         e_view = e_view.rename(columns={
             "Timestamp": "Date", "Energy_cum_kWh": "Cumulative kWh",
             "Energy_kWh": "Daily kWh", "NPF": "NPF (m³/hr)",
@@ -777,7 +820,7 @@ with tab_energy:
                                   "NPF (m³/hr)": "{:.2f}",
                                   "SEC (kWh/m³)": "{:.3f}"},
                                  na_rep="—"),
-            use_container_width=True, height=360, hide_index=True)
+            use_container_width=True, height=400, hide_index=True)
 
 
 # -----------------------------------------------------------------
