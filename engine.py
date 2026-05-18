@@ -92,10 +92,27 @@ DIAG_COLOR = {
 # Actual CIP events shared by Tata Solar (placeholder — empty until site shares)
 ACTUAL_CIP = {"RO A": [], "RO B": [], "RO C": []}
 
-# Per-train baseline override block — populate when Baskar shares site values.
-OVERRIDE_BASELINES = False
+# =====================================================================
+# Per-train baseline override — site-specific values from Baskar Mohan
+# (email "RE: Submission of Daily Reports - 23 April 2026", 12 May 2026).
+#
+# Baskar's table:
+#     Feed Flow              35   m3/hr   (informational, not in CIP rules)
+#     Permeate Flow          22   m3/hr   -> NPF baseline
+#     Feed Pressure           8.3 bar     -> FEED baseline (HP pump discharge,
+#                                            i.e. membrane feed pressure — see
+#                                            derive_kpis below)
+#     Delta Pressure          1.5         -> DP baseline (kg/cm2)
+#     Permeate Conductivity  12   uS/cm   -> NSP baseline = 12 / feed_cond * 100
+#                                            with feed_cond ~ 1030 uS/cm gives
+#                                            NSP ~ 1.17 %.
+# Baskar specified the same numbers apply to RO 1 A, B, and C.
+# =====================================================================
+OVERRIDE_BASELINES = True
 BASELINES_OVERRIDE = {
-    # "RO A": {"NPF": 21.0, "NSP": 1.5, "DP": 1.9, "FEED": 2.4},
+    "RO A": {"NPF": 22.0, "NSP": 1.17, "DP": 1.5, "FEED": 8.3},
+    "RO B": {"NPF": 22.0, "NSP": 1.17, "DP": 1.5, "FEED": 8.3},
+    "RO C": {"NPF": 22.0, "NSP": 1.17, "DP": 1.5, "FEED": 8.3},
 }
 
 
@@ -206,8 +223,11 @@ def load_raw(xlsx_paths: str | Path | Iterable[str | Path]) -> pd.DataFrame:
 def derive_kpis(raw: pd.DataFrame) -> pd.DataFrame:
     g = raw.copy()
     g["NPF"]       = g["perm_flow"]            # permeate flow m3/hr
-    g["FEED"]      = g["feed_p"]               # alias
-    g["FeedPress"] = g["feed_p"]               # FS-compatible name
+    # FEED = HP-pump discharge pressure (= membrane feed pressure).
+    # This aligns with Baskar's "Feed Pressure 8.3 bar" baseline and matches
+    # First Solar / Tata Steel where FEED also refers to the pump-side pressure.
+    g["FEED"]      = g["hp_pump_p"]
+    g["FeedPress"] = g["hp_pump_p"]            # FS-compatible alias
     g["DP"]        = g["dp"]                   # RO membrane DP
     g["PermFlow"]  = g["perm_flow"]            # FS-compatible alias
     g["NSP"]       = np.where((g["feed_cond"] > 0),
